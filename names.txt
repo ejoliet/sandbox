@@ -1,1 +1,2 @@
 Emmanuel (admin)
+Person 2 (maintainer)
