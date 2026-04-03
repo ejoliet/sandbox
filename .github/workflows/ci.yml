@@ -82,7 +82,7 @@ jobs:
     strategy:
       matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
       fail-fast: false
-    uses: ejoliet/sandbox/.github/workflows/latex-build-reusable.yml@main
+    uses: ./.github/workflows/latex-build-reusable.yml
     with:
       doc_name: ${{ matrix.doc_name }}
       latex_root: docs
