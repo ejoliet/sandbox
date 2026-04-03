@@ -1,0 +1,115 @@
+# =============================================================================
+# Reusable workflow: compile a LaTeX document to PDF
+#
+# Usage from any repo (caller must reference this file via the parent repo):
+#
+#   jobs:
+#     build-pdf:
+#       uses: ejoliet/sandbox/.github/workflows/latex-build-reusable.yml@main
+#       with:
+#         doc_name: SSC_D-M001          # filename without .tex extension
+#         latex_root: docs              # directory containing the .tex file
+#
+# Inputs
+#   doc_name   – LaTeX filename without extension (e.g. SSC_D-M001).
+#                Pattern: SSC_D-[C|T|M|D]<NNN>
+#   latex_root – subdirectory that contains the .tex file (default: docs)
+#   runs       – number of pdflatex passes (default: 3)
+#
+# Outputs
+#   artifact_name – name of the uploaded artifact (for use by callers)
+# =============================================================================
+
+name: LaTeX Build (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      doc_name:
+        description: >
+          LaTeX document name without the .tex extension.
+          Pattern: SSC_D-[C|T|M|D]NNN  (e.g. SSC_D-M001)
+        required: true
+        type: string
+
+      latex_root:
+        description: >
+          Directory (relative to repo root) that contains the .tex file.
+        required: false
+        type: string
+        default: docs
+
+      runs:
+        description: Number of pdflatex compilation passes (1–4).
+        required: false
+        type: number
+        default: 3
+
+    outputs:
+      artifact_name:
+        description: Name of the uploaded PDF artifact.
+        value: ${{ jobs.build.outputs.artifact_name }}
+
+jobs:
+  build:
+    name: Compile ${{ inputs.doc_name }}.tex
+    runs-on: ubuntu-latest
+
+    outputs:
+      artifact_name: ${{ steps.meta.outputs.artifact_name }}
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Checkout
+      # ------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # 2. Validate filename against naming convention
+      # ------------------------------------------------------------------
+      - name: Validate document name
+        shell: bash
+        run: |
+          doc="${{ inputs.doc_name }}"
+          if [[ ! "$doc" =~ ^SSC_D-[CTMD][0-9]{3}$ ]]; then
+            echo "::error::doc_name '$doc' does not match SSC_D-[C|T|M|D]NNN pattern."
+            exit 1
+          fi
+          echo "Document name is valid: $doc"
+
+      # ------------------------------------------------------------------
+      # 3. Set artifact metadata
+      # ------------------------------------------------------------------
+      - name: Set artifact metadata
+        id: meta
+        shell: bash
+        run: |
+          artifact="pdf-${{ inputs.doc_name }}-${GITHUB_SHA::8}"
+          echo "artifact_name=${artifact}" >> "$GITHUB_OUTPUT"
+          echo "Artifact name: ${artifact}"
+
+      # ------------------------------------------------------------------
+      # 4. Compile LaTeX → PDF
+      # ------------------------------------------------------------------
+      - name: Compile LaTeX document
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: ${{ inputs.doc_name }}.tex
+          working_directory: ${{ inputs.latex_root }}
+          latexmk_use_xelatex: false
+          latexmk_shell_escape: false
+          extra_system_packages: ""
+          args: -pdf -interaction=nonstopmode -halt-on-error
+          # Run multiple passes via latexmk (handles BibTeX / cross-refs)
+
+      # ------------------------------------------------------------------
+      # 5. Upload PDF artifact
+      # ------------------------------------------------------------------
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ${{ inputs.latex_root }}/${{ inputs.doc_name }}.pdf
+          if-no-files-found: error
+          retention-days: 30

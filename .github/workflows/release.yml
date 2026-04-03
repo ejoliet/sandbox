@@ -1,0 +1,137 @@
+# =============================================================================
+# Release workflow: build PDFs and attach them to a GitHub Release
+#
+# Triggered when a release (or pre-release) is published via the GitHub UI
+# or the gh CLI:
+#   gh release create v1.0.0 --title "Release 1.0.0"
+#
+# All SSC_D-*.tex files are compiled; their PDFs are uploaded as release assets.
+# The release tag is embedded in the PDF filename for traceability.
+#
+# Child repos reference the reusable workflow from this parent repo:
+#   uses: ejoliet/sandbox/.github/workflows/latex-build-reusable.yml@main
+# =============================================================================
+
+name: Release – Publish LaTeX PDFs
+
+on:
+  release:
+    types: [published]
+
+  # Allow manual release builds (e.g. to back-fill assets on an existing release)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach assets to (e.g. v1.0.0)"
+        required: true
+      doc_name:
+        description: "Specific document to build (blank = all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # needed to upload release assets
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Discover documents (same logic as CI)
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Discover LaTeX documents
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.scan.outputs.matrix }}
+      release_tag: ${{ steps.tag.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine release tag
+        id: tag
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            tag="${{ github.event.release.tag_name }}"
+          else
+            tag="${{ github.event.inputs.tag }}"
+          fi
+          echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Release tag: ${tag}"
+
+      - name: Scan for SSC_D-*.tex files
+        id: scan
+        shell: bash
+        run: |
+          manual="${{ github.event.inputs.doc_name }}"
+          if [[ -n "$manual" ]]; then
+            docs="[\"${manual}\"]"
+          else
+            mapfile -t files < <(
+              find docs -maxdepth 1 -name 'SSC_D-[CTMD][0-9][0-9][0-9].tex' \
+                | sed 's|docs/||;s|\.tex$||' | sort
+            )
+            if [[ ${#files[@]} -eq 0 ]]; then
+              echo "::error::No SSC_D-*.tex files found in docs/"
+              exit 1
+            fi
+            docs=$(printf '%s\n' "${files[@]}" | jq -R . | jq -sc .)
+          fi
+          echo "matrix={\"doc_name\":${docs}}" >> "$GITHUB_OUTPUT"
+          echo "Matrix: {\"doc_name\":${docs}}"
+
+  # ---------------------------------------------------------------------------
+  # Build each document
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build ${{ matrix.doc_name }}
+    needs: discover
+    strategy:
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+      fail-fast: false
+    uses: ejoliet/sandbox/.github/workflows/latex-build-reusable.yml@main
+    with:
+      doc_name: ${{ matrix.doc_name }}
+      latex_root: docs
+
+  # ---------------------------------------------------------------------------
+  # Attach compiled PDFs to the GitHub Release
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Attach PDFs to Release
+    runs-on: ubuntu-latest
+    needs: [discover, build]
+    strategy:
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      - name: Download PDF artifact
+        uses: actions/download-artifact@v4
+        with:
+          # Artifact name pattern must match what the reusable workflow produces:
+          # pdf-<doc_name>-<short_sha>
+          pattern: "pdf-${{ matrix.doc_name }}-*"
+          merge-multiple: true
+          path: release-assets/
+
+      - name: Rename PDF with release tag
+        id: rename
+        shell: bash
+        run: |
+          tag="${{ needs.discover.outputs.release_tag }}"
+          src="release-assets/${{ matrix.doc_name }}.pdf"
+          dst="release-assets/${{ matrix.doc_name }}_${tag}.pdf"
+          if [[ ! -f "$src" ]]; then
+            echo "::error::Expected PDF not found: $src"
+            ls -la release-assets/ || true
+            exit 1
+          fi
+          mv "$src" "$dst"
+          echo "asset_path=${dst}" >> "$GITHUB_OUTPUT"
+          echo "Renamed to: ${dst}"
+
+      - name: Upload PDF to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.discover.outputs.release_tag }}
+          files: ${{ steps.rename.outputs.asset_path }}
+          fail_on_unmatched_files: true
