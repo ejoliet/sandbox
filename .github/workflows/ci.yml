@@ -1,0 +1,107 @@
+# =============================================================================
+# CI workflow: build PDF on pull-request and on merge to main
+#
+# This workflow calls the reusable latex-build-reusable.yml.
+# Child repos reference ejoliet/sandbox's reusable workflow directly;
+# this file is the "self-hosted" caller for the parent repo.
+#
+# Document name follows the pattern: SSC_D-[C|T|M|D]NNN
+# =============================================================================
+
+name: CI – Build LaTeX PDF
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "docs/SSC_D-*.tex"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/latex-build-reusable.yml"
+
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/SSC_D-*.tex"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/latex-build-reusable.yml"
+
+  # Allow manual runs
+  workflow_dispatch:
+    inputs:
+      doc_name:
+        description: "Document name (SSC_D-[C|T|M|D]NNN, without .tex)"
+        required: false
+        default: SSC_D-M001
+
+concurrency:
+  group: ci-latex-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Discover all SSC_D-*.tex files and build each one
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Discover LaTeX documents
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.scan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for SSC_D-*.tex files
+        id: scan
+        shell: bash
+        run: |
+          # If triggered manually with a specific doc, use that only.
+          manual="${{ github.event.inputs.doc_name }}"
+          if [[ -n "$manual" ]]; then
+            docs="[\"${manual}\"]"
+          else
+            # Auto-discover all matching files under docs/
+            mapfile -t files < <(
+              find docs -maxdepth 1 -name 'SSC_D-[CTMD][0-9][0-9][0-9].tex' \
+                | sed 's|docs/||;s|\.tex$||' | sort
+            )
+            if [[ ${#files[@]} -eq 0 ]]; then
+              echo "::error::No SSC_D-*.tex files found in docs/"
+              exit 1
+            fi
+            # Build JSON array
+            docs=$(printf '%s\n' "${files[@]}" | jq -R . | jq -sc .)
+          fi
+          echo "matrix={\"doc_name\":${docs}}" >> "$GITHUB_OUTPUT"
+          echo "Matrix: {\"doc_name\":${docs}}"
+
+  # ---------------------------------------------------------------------------
+  # Build each discovered document via the reusable workflow
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build ${{ matrix.doc_name }}
+    needs: discover
+    strategy:
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+      fail-fast: false
+    uses: ejoliet/sandbox/.github/workflows/latex-build-reusable.yml@main
+    with:
+      doc_name: ${{ matrix.doc_name }}
+      latex_root: docs
+
+  # ---------------------------------------------------------------------------
+  # Summary job (useful as a single required status check in branch rules)
+  # ---------------------------------------------------------------------------
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    steps:
+      - name: Check all builds succeeded
+        shell: bash
+        run: |
+          result="${{ needs.build.result }}"
+          if [[ "$result" != "success" ]]; then
+            echo "::error::One or more LaTeX builds failed (result: $result)"
+            exit 1
+          fi
+          echo "All LaTeX documents compiled successfully."

@@ -1,0 +1,288 @@
+\documentclass[12pt,a4paper]{article}
+
+% -----------------------------------------------------------------------
+% Packages
+% -----------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{datetime2}
+\usepackage{amsmath}
+
+\geometry{margin=2.5cm}
+
+% -----------------------------------------------------------------------
+% Colours & formatting
+% -----------------------------------------------------------------------
+\definecolor{sscblue}{RGB}{0,70,127}
+\definecolor{lightgray}{RGB}{230,230,230}
+
+\titleformat{\section}{\large\bfseries\color{sscblue}}{{\thesection}}{1em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{sscblue}}{{\thesubsection}}{1em}{}
+
+% -----------------------------------------------------------------------
+% Header / footer
+% -----------------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small SSC\_D-M001 \textbar{} Rev~1.0}
+\lhead{\small Project Management Plan}
+\rfoot{\small Page \thepage}
+\lfoot{\small \textcopyright{} SSC -- CONFIDENTIAL}
+
+% -----------------------------------------------------------------------
+% Hyperref setup
+% -----------------------------------------------------------------------
+\hypersetup{
+  colorlinks = true,
+  linkcolor  = sscblue,
+  urlcolor   = sscblue,
+  pdftitle   = {SSC\_D-M001 -- Project Management Plan},
+  pdfauthor  = {SSC Team},
+}
+
+% -----------------------------------------------------------------------
+% Document metadata (edit here for each release)
+% -----------------------------------------------------------------------
+\newcommand{\docid}{SSC\_D-M001}
+\newcommand{\doctitle}{Project Management Plan}
+\newcommand{\docrev}{1.0}
+\newcommand{\docdate}{\DTMdate{2026-04-03}}
+\newcommand{\docstatus}{Draft}
+\newcommand{\docauthor}{SSC Team}
+
+% =======================================================================
+\begin{document}
+% =======================================================================
+
+% -----------------------------------------------------------------------
+% Title page
+% -----------------------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+
+  {\Huge\bfseries\color{sscblue} \doctitle \par}
+  \vspace{0.5cm}
+  {\large Document ID: \texttt{\docid} \par}
+  \vspace{2cm}
+
+  \begin{tabular}{ll}
+    \textbf{Revision:} & \docrev \\[4pt]
+    \textbf{Date:}     & \docdate \\[4pt]
+    \textbf{Status:}   & \docstatus \\[4pt]
+    \textbf{Author:}   & \docauthor \\
+  \end{tabular}
+
+  \vfill
+  \rule{\linewidth}{0.4pt}\\[4pt]
+  {\small This document is subject to change without notice.\\
+  All rights reserved -- SSC Project.}
+\end{titlepage}
+
+% -----------------------------------------------------------------------
+% Revision history
+% -----------------------------------------------------------------------
+\newpage
+\section*{Document Revision History}
+\begin{tabularx}{\textwidth}{|c|c|X|l|}
+  \hline
+  \rowcolor{lightgray}
+  \textbf{Rev} & \textbf{Date} & \textbf{Description} & \textbf{Author} \\
+  \hline
+  1.0 & 2026-04-03 & Initial release & SSC Team \\
+  \hline
+\end{tabularx}
+
+\newpage
+\tableofcontents
+\newpage
+
+% -----------------------------------------------------------------------
+% 1. Introduction
+% -----------------------------------------------------------------------
+\section{Introduction}
+
+\subsection{Purpose}
+This document defines the Project Management Plan (PMP) for the SSC project.
+It describes the governance structure, planning methodology, risk management
+approach, and quality assurance processes adopted throughout the project
+lifecycle.
+
+\subsection{Scope}
+This plan applies to all activities within the SSC project from initiation
+through to closure. It is applicable to all project team members, stakeholders,
+and subcontractors operating under the SSC programme.
+
+\subsection{Document Naming Convention}
+Documents produced under this project follow the naming convention:
+
+\begin{center}
+  \texttt{SSC\_D-<Category><NNN>}
+\end{center}
+
+\noindent where \texttt{<Category>} is one of:
+
+\begin{description}[labelindent=1cm]
+  \item[\texttt{C}] Configuration \& Interface Control
+  \item[\texttt{T}] Technical Specifications \& Design
+  \item[\texttt{M}] Management \& Planning
+  \item[\texttt{D}] Data, Analysis \& Reports
+\end{description}
+
+\noindent and \texttt{<NNN>} is a zero-padded three-digit sequence number.
+
+\subsection{Applicable Documents}
+\begin{enumerate}
+  \item SSC\_D-T001 -- System Requirements Specification
+  \item SSC\_D-C001 -- Interface Control Document
+  \item SSC\_D-D001 -- Verification \& Validation Report
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+% 2. Project Overview
+% -----------------------------------------------------------------------
+\section{Project Overview}
+
+\subsection{Objectives}
+The primary objectives of the SSC project are:
+\begin{itemize}
+  \item Deliver a fully verified system in accordance with the approved
+        requirements baseline.
+  \item Maintain schedule, cost, and quality within agreed tolerances.
+  \item Ensure traceability from requirements through design to verification.
+\end{itemize}
+
+\subsection{Deliverables}
+Table~\ref{tab:deliverables} lists the key deliverables.
+
+\begin{longtable}{|c|l|l|c|}
+  \hline
+  \rowcolor{lightgray}
+  \textbf{ID} & \textbf{Deliverable} & \textbf{Document} & \textbf{Due} \\
+  \hline
+  \endfirsthead
+  \hline
+  \rowcolor{lightgray}
+  \textbf{ID} & \textbf{Deliverable} & \textbf{Document} & \textbf{Due} \\
+  \hline
+  \endhead
+  D-01 & Project Management Plan   & SSC\_D-M001 & Q1 2026 \\
+  D-02 & System Requirements Spec  & SSC\_D-T001 & Q1 2026 \\
+  D-03 & Preliminary Design Review & SSC\_D-T002 & Q2 2026 \\
+  D-04 & Critical Design Review    & SSC\_D-T003 & Q3 2026 \\
+  D-05 & V\&V Report               & SSC\_D-D001 & Q4 2026 \\
+  \hline
+  \caption{Project Deliverables}
+  \label{tab:deliverables}
+\end{longtable}
+
+% -----------------------------------------------------------------------
+% 3. Organisation & Roles
+% -----------------------------------------------------------------------
+\section{Organisation and Roles}
+
+\subsection{Project Governance}
+The project operates under a standard governance framework consisting of:
+
+\begin{itemize}
+  \item \textbf{Project Board} -- strategic oversight and go/no-go decisions.
+  \item \textbf{Project Manager} -- day-to-day management and reporting.
+  \item \textbf{Technical Lead} -- technical authority and design decisions.
+  \item \textbf{Quality Manager} -- process compliance and audit.
+\end{itemize}
+
+\subsection{Responsibilities Matrix (RACI)}
+\begin{tabularx}{\textwidth}{|X|c|c|c|c|}
+  \hline
+  \rowcolor{lightgray}
+  \textbf{Activity} & \textbf{PM} & \textbf{TL} & \textbf{QM} & \textbf{Board} \\
+  \hline
+  Schedule management   & R & C & I & A \\
+  Technical decisions   & I & R & I & A \\
+  Risk management       & R & C & C & A \\
+  Quality audits        & I & I & R & A \\
+  Budget control        & R & I & I & A \\
+  \hline
+\end{tabularx}
+
+\vspace{6pt}
+\noindent\textit{R = Responsible, A = Accountable, C = Consulted, I = Informed}
+
+% -----------------------------------------------------------------------
+% 4. Risk Management
+% -----------------------------------------------------------------------
+\section{Risk Management}
+
+\subsection{Risk Assessment Process}
+Risks are assessed using a $5 \times 5$ likelihood--impact matrix.
+Risk exposure is calculated as:
+
+\begin{equation}
+  E = L \times I
+\end{equation}
+
+\noindent where $L \in [1,5]$ is the likelihood score and $I \in [1,5]$ is
+the impact score.  Risks with $E \geq 12$ are escalated to the Project Board.
+
+\subsection{Risk Register (excerpt)}
+\begin{tabularx}{\textwidth}{|c|X|c|c|c|X|}
+  \hline
+  \rowcolor{lightgray}
+  \textbf{ID} & \textbf{Risk} & \textbf{L} & \textbf{I} & \textbf{E} & \textbf{Mitigation} \\
+  \hline
+  R-01 & Key personnel unavailability & 3 & 4 & 12 & Cross-train team members \\
+  R-02 & Requirements change late     & 2 & 5 & 10 & Freeze baseline at PDR \\
+  R-03 & CI pipeline failure          & 2 & 3 &  6 & Maintain local build fallback \\
+  \hline
+\end{tabularx}
+
+% -----------------------------------------------------------------------
+% 5. Quality Assurance
+% -----------------------------------------------------------------------
+\section{Quality Assurance}
+
+\subsection{Document Control}
+All project documents are version-controlled in the project repository.
+PDF artefacts are generated automatically via the Continuous Integration
+pipeline described in Section~\ref{sec:ci}.
+
+\subsection{Continuous Integration}\label{sec:ci}
+The project uses GitHub Actions to automate the following tasks:
+
+\begin{itemize}
+  \item Compile all \LaTeX{} sources to PDF on every pull request.
+  \item Publish the compiled PDF as a build artefact for review.
+  \item Attach the signed PDF to GitHub Releases at release time.
+\end{itemize}
+
+% -----------------------------------------------------------------------
+% 6. Glossary
+% -----------------------------------------------------------------------
+\section{Glossary}
+\begin{tabularx}{\textwidth}{|l|X|}
+  \hline
+  \rowcolor{lightgray}
+  \textbf{Term} & \textbf{Definition} \\
+  \hline
+  CI   & Continuous Integration \\
+  PMP  & Project Management Plan \\
+  PDR  & Preliminary Design Review \\
+  CDR  & Critical Design Review \\
+  RACI & Responsible, Accountable, Consulted, Informed \\
+  SSC  & System / Sub-System Controller (project code) \\
+  V\&V & Verification and Validation \\
+  \hline
+\end{tabularx}
+
+\end{document}
