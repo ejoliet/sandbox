@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LAN-Pong</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: monospace;
+      color: #fff;
+      overflow: hidden;
+    }
+    #wrap {
+      position: relative;
+      line-height: 0;
+    }
+    canvas {
+      display: block;
+      max-width: 100vw;
+      max-height: 80vh;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.7);
+      gap: 14px;
+    }
+    #overlay h1 { font-size: 2rem; letter-spacing: 4px; }
+    #status { font-size: 1rem; color: #aaa; text-align: center; padding: 0 20px; }
+    .btn {
+      padding: 10px 28px;
+      font-size: 1rem;
+      font-family: monospace;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn:hover:not(:disabled) { background: #ddd; }
+    #hint { margin-top: 8px; font-size: 0.75rem; color: #555; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="overlay">
+      <h1>LAN-PONG</h1>
+      <p id="status">Connecting…</p>
+      <button id="readyBtn" class="btn" style="display:none">Ready!</button>
+      <button id="rematchBtn" class="btn" style="display:none">Rematch</button>
+    </div>
+  </div>
+  <p id="hint">Arrow keys or W / S to move</p>
+
+  <script src="renderer.js"></script>
+  <script src="input.js"></script>
+  <script>
+    const canvas    = document.getElementById('gameCanvas');
+    const overlay   = document.getElementById('overlay');
+    const statusEl  = document.getElementById('status');
+    const readyBtn  = document.getElementById('readyBtn');
+    const rematchBtn = document.getElementById('rematchBtn');
+
+    let renderer, inputHandler, myPlayer;
+
+    const ws = new WebSocket('ws://' + location.host);
+
+    ws.onopen = () => {
+      statusEl.textContent = 'Connected — waiting for opponent…';
+    };
+
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+
+      if (msg.type === 'assign') {
+        myPlayer = msg.player;
+        canvas.width  = msg.config.width;
+        canvas.height = msg.config.height;
+        renderer = new Renderer(canvas, msg.config);
+        inputHandler = new Input(ws);
+        inputHandler.setupKeyboard();
+        statusEl.textContent =
+          'You are Player ' + (myPlayer === 'p1' ? '1 (left)' : '2 (right)') +
+          ' — waiting for opponent…';
+        return;
+      }
+
+      if (msg.type === 'state') {
+        if (renderer) renderer.draw(msg);
+
+        if (msg.phase === 'waiting') {
+          overlay.style.display  = 'flex';
+          readyBtn.style.display  = 'inline-block';
+          rematchBtn.style.display = 'none';
+          readyBtn.disabled = false;
+          readyBtn.textContent = 'Ready!';
+          if (myPlayer) {
+            statusEl.textContent =
+              'Both connected! Press Ready when you are.';
+          }
+        } else if (msg.phase === 'playing' || msg.phase === 'point') {
+          overlay.style.display = 'none';
+        } else if (msg.phase === 'gameover') {
+          overlay.style.display  = 'flex';
+          readyBtn.style.display  = 'none';
+          rematchBtn.style.display = 'inline-block';
+          const winner = msg.score.p1 > msg.score.p2 ? 'Player 1' : 'Player 2';
+          statusEl.textContent = winner + ' wins!  ' + msg.score.p1 + ' – ' + msg.score.p2;
+        }
+        return;
+      }
+
+      if (msg.type === 'rematch') {
+        readyBtn.style.display   = 'inline-block';
+        rematchBtn.style.display = 'none';
+        readyBtn.disabled = false;
+        readyBtn.textContent = 'Ready!';
+        statusEl.textContent = 'Rematch! Press Ready.';
+        overlay.style.display = 'flex';
+        return;
+      }
+
+      if (msg.type === 'error' || msg.type === 'disconnect') {
+        statusEl.textContent = msg.message;
+        overlay.style.display = 'flex';
+        readyBtn.style.display  = 'none';
+        rematchBtn.style.display = 'none';
+      }
+    };
+
+    ws.onerror = () => { statusEl.textContent = 'Connection error.'; };
+    ws.onclose = () => { statusEl.textContent = 'Disconnected from server.'; };
+
+    readyBtn.addEventListener('click', () => {
+      if (!inputHandler) return;
+      inputHandler.sendReady();
+      readyBtn.disabled = true;
+      readyBtn.textContent = 'Waiting for opponent…';
+    });
+
+    rematchBtn.addEventListener('click', () => {
+      if (!inputHandler) return;
+      inputHandler.sendRematch();
+      rematchBtn.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
