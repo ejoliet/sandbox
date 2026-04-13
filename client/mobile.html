@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>LAN-Pong Mobile</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #111;
+      overflow: hidden;
+      font-family: monospace;
+      color: #fff;
+      /* Encourage landscape on mobile */
+      touch-action: none;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    /* Canvas fills available width */
+    canvas {
+      display: block;
+      max-width: 100vw;
+      max-height: 60vh;
+    }
+
+    /* Landscape control row: UP and DOWN side by side */
+    #controls {
+      display: none;
+      width: 100%;
+      max-width: 600px;
+      padding: 10px 20px;
+      gap: 16px;
+      justify-content: center;
+    }
+    #controls.visible { display: flex; }
+
+    .ctrl-btn {
+      flex: 1;
+      height: 70px;
+      font-size: 1.4rem;
+      font-family: monospace;
+      background: #2a2a2a;
+      color: #fff;
+      border: 2px solid #555;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .ctrl-btn:active { background: #444; }
+
+    /* Overlay for waiting / gameover */
+    #overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+    #overlay h1 { font-size: 1.6rem; letter-spacing: 3px; }
+    #status { font-size: 0.9rem; color: #aaa; }
+    .ui-btn {
+      padding: 12px 30px;
+      font-size: 1rem;
+      font-family: monospace;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .ui-btn:disabled { opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="controls">
+    <button class="ctrl-btn" id="upBtn">▲ UP</button>
+    <button class="ctrl-btn" id="downBtn">▼ DOWN</button>
+  </div>
+  <div id="overlay">
+    <h1>LAN-PONG</h1>
+    <p id="status">Connecting…</p>
+    <button id="readyBtn" class="ui-btn" style="display:none">Ready!</button>
+    <button id="rematchBtn" class="ui-btn" style="display:none">Rematch</button>
+  </div>
+
+  <script src="renderer.js"></script>
+  <script src="input.js"></script>
+  <script>
+    const canvas     = document.getElementById('gameCanvas');
+    const controls   = document.getElementById('controls');
+    const overlay    = document.getElementById('overlay');
+    const statusEl   = document.getElementById('status');
+    const readyBtn   = document.getElementById('readyBtn');
+    const rematchBtn = document.getElementById('rematchBtn');
+    const upBtn      = document.getElementById('upBtn');
+    const downBtn    = document.getElementById('downBtn');
+
+    let renderer, inputHandler, myPlayer;
+
+    const ws = new WebSocket('ws://' + location.host);
+
+    ws.onopen = () => { statusEl.textContent = 'Connected…'; };
+
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+
+      if (msg.type === 'assign') {
+        myPlayer = msg.player;
+        canvas.width  = msg.config.width;
+        canvas.height = msg.config.height;
+        renderer = new Renderer(canvas, msg.config);
+        inputHandler = new Input(ws);
+        inputHandler.setupButtons(upBtn, downBtn);
+        statusEl.textContent =
+          'You are Player ' + (myPlayer === 'p1' ? '1 (left)' : '2 (right)');
+        return;
+      }
+
+      if (msg.type === 'state') {
+        if (renderer) renderer.draw(msg);
+
+        if (msg.phase === 'waiting') {
+          overlay.style.display  = 'flex';
+          controls.classList.remove('visible');
+          readyBtn.style.display  = 'inline-block';
+          rematchBtn.style.display = 'none';
+          readyBtn.disabled = false;
+          readyBtn.textContent = 'Ready!';
+          if (myPlayer) statusEl.textContent = 'Press Ready!';
+        } else if (msg.phase === 'playing' || msg.phase === 'point') {
+          overlay.style.display = 'none';
+          controls.classList.add('visible');
+        } else if (msg.phase === 'gameover') {
+          overlay.style.display  = 'flex';
+          controls.classList.remove('visible');
+          readyBtn.style.display  = 'none';
+          rematchBtn.style.display = 'inline-block';
+          const winner = msg.score.p1 > msg.score.p2 ? 'Player 1' : 'Player 2';
+          statusEl.textContent = winner + ' wins!  ' + msg.score.p1 + ' – ' + msg.score.p2;
+        }
+        return;
+      }
+
+      if (msg.type === 'rematch') {
+        overlay.style.display  = 'flex';
+        controls.classList.remove('visible');
+        rematchBtn.style.display = 'none';
+        readyBtn.style.display   = 'inline-block';
+        readyBtn.disabled = false;
+        readyBtn.textContent = 'Ready!';
+        statusEl.textContent = 'Rematch — press Ready!';
+        return;
+      }
+
+      if (msg.type === 'error' || msg.type === 'disconnect') {
+        controls.classList.remove('visible');
+        overlay.style.display  = 'flex';
+        statusEl.textContent   = msg.message;
+        readyBtn.style.display  = 'none';
+        rematchBtn.style.display = 'none';
+      }
+    };
+
+    ws.onerror = () => { statusEl.textContent = 'Connection error.'; };
+    ws.onclose = () => { statusEl.textContent = 'Disconnected.'; };
+
+    readyBtn.addEventListener('click', () => {
+      if (!inputHandler) return;
+      inputHandler.sendReady();
+      readyBtn.disabled = true;
+      readyBtn.textContent = 'Waiting…';
+    });
+
+    rematchBtn.addEventListener('click', () => {
+      if (!inputHandler) return;
+      inputHandler.sendRematch();
+      rematchBtn.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
