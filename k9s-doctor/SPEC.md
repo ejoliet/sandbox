@@ -554,6 +554,7 @@ go test ./internal/collector/...   # passes without a live cluster
 `internal/config/config.go`:
 - `Config` struct with all fields
 - `Load() Config`: reads env vars first, then merges config file if present
+- `(c Config) IsConfigured() bool`: returns false when `BaseURL` is the default AND no API key is set AND the default Ollama endpoint is unreachable (TCP connect to `localhost:11434` with 1s timeout)
 
 `internal/agent/prompt.go`:
 - `BuildPrompt(result collector.CollectionResult, podName, namespace, kubeContext string) (system, user string)`
@@ -581,7 +582,27 @@ go test ./internal/agent/... ./internal/config/...   # passes
 
 `cmd/k9s-doctor/main.go`:
 - `explain pod` command accepts all flags: `--context`, `--namespace`, `--name`, `--container`, `--kubeconfig`, `--output [text|json|markdown]`, `--summary`
-- Calls: config.Load → collector.CollectPod → agent.BuildPrompt → client.Complete → render
+- Calls: config.Load → **provider check** → collector.CollectPod → agent.BuildPrompt → client.Complete → render
+- If `cfg.IsConfigured()` returns false, print the first-run help message (see below) and exit 0
+
+**First-run message** (printed to stdout so K9s displays it in the plugin pane):
+
+```
+k9s-doctor: no LLM provider reachable.
+
+Quick start with Ollama (local, free, no API key):
+  ollama pull llama3.2
+  # then press Shift-E again
+
+Or configure a remote provider:
+  export K9S_DOCTOR_BASE_URL=https://openrouter.ai/api/v1
+  export K9S_DOCTOR_MODEL=anthropic/claude-3.5-haiku
+  export K9S_DOCTOR_API_KEY=sk-or-...
+
+See https://github.com/ejoliet/k9s-doctor#configure for all options.
+```
+
+The message must fit the K9s plugin pane (no pager needed). Add a test asserting this message is printed when `IsConfigured()` returns false.
 
 `internal/render/text.go`:
 - `RenderText(result *schema.DiagnosisResult, summary bool) string`
@@ -642,6 +663,7 @@ echo "Restart K9s and press Shift-E on a pod."
 
 | Failure                          | Behavior                                                                 |
 |----------------------------------|--------------------------------------------------------------------------|
+| No LLM provider configured/reachable | Print first-run help message with Ollama quickstart + env var examples; exit 0 |
 | `kubectl` not found in PATH      | Print: "k9s-doctor: kubectl not found. Install kubectl and retry."       |
 | Invalid kube context             | Print: "k9s-doctor: context <ctx> not found in kubeconfig."              |
 | Pod not found                    | Print: "k9s-doctor: pod <name> not found in namespace <ns>."             |

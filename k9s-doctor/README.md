@@ -81,6 +81,23 @@ mv k9s-doctor /usr/local/bin/
 
 ## Configure
 
+`k9s-doctor` does not ship a model. You bring your own provider — local or remote.
+
+If no provider is reachable when you press Shift-E, the plugin pane shows a first-run message instead of timing out:
+
+```
+k9s-doctor: no LLM provider reachable.
+
+Quick start with Ollama (local, free, no API key):
+  ollama pull llama3.2
+  # then press Shift-E again
+
+Or configure a remote provider:
+  export K9S_DOCTOR_BASE_URL=https://openrouter.ai/api/v1
+  export K9S_DOCTOR_MODEL=anthropic/claude-3.5-haiku
+  export K9S_DOCTOR_API_KEY=sk-or-...
+```
+
 `k9s-doctor` is local-first. By default it talks to [Ollama](https://ollama.com) running on your machine.
 
 ```bash
