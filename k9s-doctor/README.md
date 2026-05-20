@@ -24,6 +24,16 @@ kubectl get deploy / rs / svc / ingress ...
 kubectl top pod ...
 ```
 
+You could collect all that, paste it into ChatGPT, and get a decent answer. `k9s-doctor` does the same thing — but with three differences that matter during an incident:
+
+**1. It collects what you'd forget.** A complete diagnosis needs pod YAML, logs, events, the owner chain (RS → Deploy), service selectors, and secret key presence. Under pressure, most people grab logs and maybe describe. `k9s-doctor` always collects everything, as systematically as your best SRE would — not as thoroughly as whoever is currently on call.
+
+**2. One keystroke, no context switch.** You're already in K9s, you're already stressed. The result appears in the same pane. No browser tab, no copy-paste, no re-explaining what cluster you're on.
+
+**3. Credentials stay out of cloud AI.** Raw logs routinely contain tokens, connection strings, and auth headers. `k9s-doctor` redacts those before any LLM call. With Ollama, nothing leaves your machine.
+
+The output is structured — category, confidence, evidence, exact verification commands, safe next action, what *not* to do — ready to paste into a PagerDuty note or Slack thread.
+
 K9s already knows the selected resource, namespace, cluster context, container, and kubeconfig. `k9s-doctor` uses that to collect bounded live context automatically, then asks a local or remote LLM for a structured diagnosis.
 
 The goal is not a general Kubernetes chatbot. The goal is to make K9s better at the moment an operator is already investigating something.
